@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "nustar_uplim"
+version = "1.0.0"
+description = "NuSTAR non-detection upper limit analysis pipeline"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+keywords = ["nustar", "x-ray", "astronomy", "upper-limits", "non-detection"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "numpy>=1.21",
+    "scipy>=1.7",
+    "astropy>=5.0",
+    "matplotlib>=3.5",
+    "regions>=0.6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "flake8", "black"]
+
+[project.scripts]
+nustar-uplim = "nustar_uplim.pipeline:main"
+
+[project.urls]
+Homepage = "https://github.com/your-org/nustar_uplim"
+Issues = "https://github.com/your-org/nustar_uplim/issues"
