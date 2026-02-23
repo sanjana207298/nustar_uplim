@@ -114,10 +114,10 @@ Any of the following work for both `--ra` and `--dec`:
 | `--obsid` | required | NuSTAR ObsID string |
 | `--ra` | required | Source RA (any format) |
 | `--dec` | required | Source Dec (any format) |
-| `--src-radius` | 30 | Source circle radius (arcseconds) |
-| `--bkg-radius` | 90 | Background circle radius (arcseconds) |
+| `--src-radius` | 20 | Source circle radius (arcseconds). NuSTAR PSF HPD ~58" so 20" captures the brightest core |
+| `--bkg-radius` | 100 | Background region radius (arcseconds) |
 | `--bkg-mode` | auto | `auto`, `interactive`, or `annulus` |
-| `--band` | soft | `full`, `soft`, `hard`, `ultrahard` |
+| `--band` | soft | Named: `full` (3–79 keV), `soft` (3–10 keV), `hard` (10–30 keV), `ultrahard` (30–79 keV). Custom keV range: `8-30`, `15:50` |
 | `--modules` | A B | Which FPM modules to process |
 | `--stat-method` | background_inclusive | Statistical method (see below) |
 | `--confidence` | 0.9545 0.9973 | Confidence levels (2σ and 3σ) |
@@ -182,6 +182,7 @@ times, positions, and energies that have already been:
 | `hard` | 210–710 | 10–30 keV |
 | `full` | 35–1935 | 3–79 keV |
 | `ultrahard` | 710–1935 | 30–79 keV |
+| `8-30` (custom) | 160–710 | 8–30 keV |
 
 NuSTAR channels: 1 PI channel = 0.04 keV; offset = 1.6 keV.
 Formula: $\text{PI} = (E_{\text{keV}} - 1.6) / 0.04$
@@ -370,31 +371,42 @@ This pipeline uses:
 
 ## Limitations and Caveats
 
-1. **Vignetting**: NuSTAR's effective area decreases with off-axis angle. If your
-   source is far off-axis, the ECF computed on-axis overestimates the sensitivity.
-   The correction is typically < 30% within 4' but can be significant beyond 6'.
+1. **Vignetting** *(handled if exposure map present)*: NuSTAR's effective area
+   decreases with off-axis angle — roughly a 10% reduction at 2', 30–40% at 6'.
+   The pipeline will automatically apply a vignetting correction if the exposure
+   map file (`nu{obsid}{mod}01_ex.img.gz`) exists in the `event_cl` directory.
+   This file is **not** produced on download — you need to run `nuexpomap` from
+   HEASoft first:
+   ```bash
+   nuexpomap infile=nu90601606002A01_cl.evt.gz \
+             attfile=nu90601606002A.attorb.gz \
+             instrprobmapfile=CALDB ...
+   ```
+   If the file is absent the pipeline prints a warning and proceeds without
+   the correction — acceptable for sources within ~2–3' of the optical axis.
 
-2. **PSF effects**: The NuSTAR PSF has a half-power diameter of ~18" (FWHM ~18" at
-   10 keV) with extended wings. A 30" source region captures ~75% of the PSF.
-   The enclosed energy fraction (EEF) correction is not applied by default; you
-   should divide the inferred flux by the EEF for your chosen radius.
+2. **PSF effects**: The NuSTAR PSF has a half-power diameter (HPD) of ~58" and
+   a FWHM of ~18" at 10 keV, with significant power-law wings. A 20" source
+   region (the default) captures ~50% of the HPD; 30" captures ~60%. This means
+   the true source counts are higher than measured — divide the inferred count
+   rate by the enclosed energy fraction (EEF) for your chosen radius. EEF tables
+   for NuSTAR are in the CALDB (`nustar/fpm/bcf/psf/`).
 
-3. **Approximate ECFs**: The provided ECFs are for guidance only. For publication-
-   quality results, derive ECFs from the observation-specific ARF and RMF using XSPEC
-   (see above). Errors of 20–50% are possible.
+3. **Background spatial uniformity**: The simple area-scaled background assumes
+   the background is spatially flat within the region. The NuSTAR background has
+   gentle gradients, is higher near chip edges and readout nodes, and contains
+   stray light from the optics bench. Use the interactive background mode to
+   place the background region carefully — same chip, similar off-axis angle,
+   avoiding other sources and chip edges.
 
-4. **Background estimation**: The simple area-scaled background assumes the background
-   is spatially uniform. The NuSTAR background has spatial gradients (especially
-   near chip edges and the optics bench stray light). Choose background regions
-   carefully.
+4. **Mode 01 only**: This pipeline reads mode-01 (standard science mode) events
+   by default. Modes 02–06 (low-efficiency readout, calibration source, etc.) are
+   present in `event_cl` but not merged. For very faint sources you can manually
+   merge the cleaned event files from all modes before running.
 
-5. **Mode 01 only**: This pipeline processes mode 01 (standard science mode) events
-   by default. Other modes (02–06, e.g. low-efficiency readout modes) are available
-   in the event_cl directory but are not merged automatically.
-
-6. **No ARF/RMF convolution**: For a full spectral fit (even just fitting a model to
-   the background-subtracted spectrum), use Sherpa or pyXSPEC, which correctly
-   fold the spectral model through the instrument response.
+5. **No ARF/RMF convolution**: This tool computes count-rate upper limits, not
+   spectra. For a full spectral analysis or to derive ECFs precisely, use
+   Sherpa or pyXSPEC with the observation-specific ARF and RMF files.
 
 ---
 

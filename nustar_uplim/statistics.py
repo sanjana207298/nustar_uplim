@@ -204,35 +204,26 @@ def lima_significance(n_on, n_off, alpha):
 # 5. WebPIMMS guidance
 # ---------------------------------------------------------------------------
 
-# NuSTAR energy band definitions used in WebPIMMS
-PIMMS_BAND_INFO = {
-    "full":      ("3.0", "79.0"),
-    "soft":      ("3.0", "10.0"),
-    "hard":      ("10.0", "30.0"),
-    "ultrahard": ("30.0", "79.0"),
-}
-
 PIMMS_URL = "https://cxc.harvard.edu/toolkit/pimms.jsp"
 
 
 def format_pimms_instructions(count_rate_ul, band, obsid="", module="", sigma_label="3sigma"):
     """
-    Return a formatted string with WebPIMMS instructions for converting
-    a NuSTAR count-rate upper limit to a flux upper limit.
+    Return formatted WebPIMMS instructions for converting a NuSTAR
+    count-rate upper limit to a flux upper limit.
 
     Parameters
     ----------
     count_rate_ul : float   — upper limit on count rate [cts/s]
-    band          : str     — energy band key
+    band          : str     — named band key or custom range e.g. '8-30'
     obsid         : str
     module        : str
     sigma_label   : str
-
-    Returns
-    -------
-    instructions : str
     """
-    e_lo, e_hi = PIMMS_BAND_INFO.get(band, ("3.0", "79.0"))
+    from .extraction import parse_band
+    band_tuple = parse_band(band)
+    e_lo = str(band_tuple[2])
+    e_hi = str(band_tuple[3])
 
     lines = [
         "",

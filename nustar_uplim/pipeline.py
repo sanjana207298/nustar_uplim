@@ -23,7 +23,7 @@ from datetime import datetime
 from .io          import (find_event_cl_dir, load_events, load_sky_image,
                            get_events_wcs, summary_table)
 from .coords      import parse_radec, arcsec_to_pixels, radec_to_pixels
-from .extraction  import extract_counts, ENERGY_BANDS
+from .extraction  import extract_counts, ENERGY_BANDS, parse_band, load_exposure_map
 from .statistics  import compute_upper_limits, format_pimms_instructions
 from .visualization import (plot_sky_image, plot_regions, plot_event_scatter,
                              plot_upper_limit_summary, plot_radial_profile,
@@ -66,9 +66,9 @@ class NuSTARUpperLimitPipeline:
                  obsid,
                  ra,
                  dec,
-                 src_radius_as=30.0,
-                 bkg_radius_as=90.0,
-                 energy_band="soft",
+                 src_radius_as=20.0,
+                 bkg_radius_as=100.0,
+                 energy_band="soft",  # 3-10 keV default
                  bkg_mode="auto",
                  modules=("A", "B"),
                  confidence_levels=(0.9545, 0.9973),
@@ -185,14 +185,24 @@ class NuSTARUpperLimitPipeline:
             out_dir=self.out_dir, show=self.show_plots,
         )
 
+        # Try to load optional exposure map (vignetting correction)
+        exp_map, exp_wcs_obj = load_exposure_map(
+            self.event_cl_dir, self.obsid, mod)
+        if exp_map is None:
+            print("  Exposure map not found — skipping vignetting correction.")
+            print("  (Run nuexpomap in HEASoft to generate it if needed.)")
+
         # Extract counts
-        print(f"\n  [Step 3] Extracting counts ({self.energy_band} band)...")
+        band_info = parse_band(self.energy_band)
+        print(f"\n  [Step 3] Extracting counts — {band_info[4]}  "
+              f"(PI {band_info[0]}–{band_info[1]})...")
         extr = extract_counts(
             events, ev_wcs,
             self.src_ra, self.src_dec, src_r_pix,
             bkg_ra, bkg_dec, bkg_r_pix,
             bkg_type=bkg_type, bkg_inner_pix=bkg_inner,
             energy_band=self.energy_band,
+            exp_map=exp_map, exp_wcs=exp_wcs_obj,
         )
         print(f"  → Source counts:   {extr['src_counts']}")
         print(f"  → Background cts:  {extr['bkg_counts']}  (α={extr['alpha']:.4f})")
